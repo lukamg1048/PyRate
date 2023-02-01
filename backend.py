@@ -32,9 +32,10 @@ class BackEnd():
                 ON DELETE CASCADE
                 ON UPDATE CASCADE)
         ''')
-        self.cur.execute('DELETE FROM user')
-        self.cur.execute('DELETE FROM song')
-        self.cur.execute('DELETE FROM rating')
+        if truncate:
+            self.cur.execute('DELETE FROM user')
+            self.cur.execute('DELETE FROM song')
+            self.cur.execute('DELETE FROM rating')
 
     def add_user(self, id) -> None:
         self.cur.execute('''INSERT INTO user VALUES(?)''', (id,))
