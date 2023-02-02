@@ -1,7 +1,9 @@
-from bot import pyRate
-
+from bot import PyRate
+from backend import DB
 from util import token
 
 
 if __name__ == "__main__":
-    pyRate.run(token)
+    db = DB()
+    bot = PyRate()
+    bot.run(token)

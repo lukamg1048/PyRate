@@ -31,6 +31,3 @@ class PyRate(commands.Bot):
     # Test/Init commands/events
     async def on_ready(self):
         print(f"We have logged in as {self.user}")
-
-
-pyRate = PyRate()
