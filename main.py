@@ -3,7 +3,9 @@ from backend import DB
 from util import token
 
 
+db = DB()
+bot = PyRate()
+
 if __name__ == "__main__":
-    db = DB()
-    bot = PyRate()
+    bot.load_extension("cogs.recommend")
     bot.run(token)
