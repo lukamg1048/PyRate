@@ -7,5 +7,6 @@ db = DB()
 bot = PyRate()
 
 if __name__ == "__main__":
+    bot.load_extension("cogs.misc")
     bot.load_extension("cogs.recommend")
     bot.run(token)
