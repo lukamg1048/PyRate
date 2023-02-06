@@ -16,39 +16,25 @@ class Recommend(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.slash_command(
-        name="debug_print_db"
-    )
-    async def print_db(self, inter: Interaction, which_db: str):
-        ret = await db.debug_fetch_db(which_db)
-        await inter.response.send_message(ret)
-    
-    @commands.slash_command(
-        name="recommend",
-        description="Recommend a song to another user.",
-        dm_permission=False
-    )
-    async def recommend(
-        self,
-        inter: Interaction,
-    ): 
-        suggester = User(inter.author.id)
-        thread_id = inter.channel_id
-        try:
-            thread = await db.get_thread_by_id(thread_id)
-            rater: User
-            if suggester.discord_id == thread.user1.discord_id:
-                rater = thread.user2
-            elif suggester.discord_id == thread.user2.discord_id:
-                rater = thread.user1
-            else:
-                await inter.response.send("Error: Unexpected response when trying to find thread.")
-                return
-            await inter.response.send_modal(RecommendModal(suggester=suggester, rater=rater))
-        except(ValueError):
-            await inter.response.send("Error: Command not used in an established thread.")
+    async def fetch_thread(self, inter: Interaction) -> Thread:
+        # Need to check if the the command is being called from an established thread...
+        return await db.get_thread_by_id(thread_id=inter.channel_id)
 
-    '''
+    async def validate_request(self, inter: Interaction, thread: Thread):
+        # ...that the caller is a part of that thread...
+        author = User(inter.author.id)
+        if author not in thread:
+            raise ValueError("You are not a member of the current thread.")
+        # ...and that they're actually at bat.
+        if author != thread.next_user:
+            raise ValueError("It is not your turn to make or rate a recommendation.")
+
+    @commands.slash_command(
+        name="get"
+    )
+    async def getopen(self, inter: Interaction):
+        await inter.response.send_message(await db.get_open_rating_by_thread(await db.get_thread_by_id(thread_id=inter.channel_id)))
+
     @commands.slash_command(
         name="recommend",
         description="Recommend a song to another user.",
@@ -57,29 +43,47 @@ class Recommend(commands.Cog):
     async def recommend(
         self,
         inter: Interaction,
-        rater: disnakeUser,
-        song_name: str,
-        artist: str,
-        link: str
     ): 
-        suggester = User(discord_id=inter.author.id)
-        rater = User(discord_id=rater.id)
-        song = Song(name=song_name.casefold(), artist=artist.casefold())
-        rec = Recommendation(
-            song=song,
-            rater=rater,
-            suggester=suggester,
-            timestamp=inter.created_at,
-        )
-        await db.create_open_rec(rec)
-        await inter.response.send_message(
-            rater.mention,
-            embed = Embed(
-                title="New Recommendation",
-                description=f'"{song_name.upper()}" by {artist.upper()}'
-            ),
-            components=[Button(label="Link", url=link, style=ButtonStyle.link)]
-        )'''
+        try:
+            thread = await self.fetch_thread(inter)
+            await self.validate_request(inter, thread)
+        except(ValueError) as e:
+            await inter.response.send_message(f"Error: {e}", ephemeral=True)
+            return
+        # Also check that there is no open rec:
+        if await db.does_thread_have_open_rec(thread):
+            await inter.response.send_message("Error: There is already an open recommendation in this thread.", ephemeral=True)
+        # Once we have confirmed the request is valid, 
+        # we can actually create the recommednation.
+        else:
+            await inter.response.send_modal(RecommendModal(thread=thread))
+        
+
+    @commands.slash_command(
+        name="rate",
+        description="Rate and close an open recommendation.",
+        dm_permission=False
+    )
+    async def rate(
+        self,
+        inter: Interaction,
+        rating: commands.Range[1, 10.0]
+    ):
+        try:
+            thread = await self.fetch_thread(inter)
+            await self.validate_request(inter, thread)
+        except(ValueError) as e:
+            await inter.response.send_message(f"Error: {e}", ephemeral=True)
+            return
+        if not await db.get_open_rating_by_thread(thread):
+            await inter.response.send_message("Error: There is no open recommendation to rate.", ephemeral=True)
+            return
+        rec = await db.get_open_rating_by_thread(thread)
+        rec.rating = rating
+        await db.close_rec(rec)
+        await inter.response.send_message(f"{rec.suggester.mention}, your recommendation has been rated **{rec.rating}/10**. Any additional comments may be given below.")
+        
+
 
 def setup(bot: commands.Bot):
     bot.add_cog(Recommend(bot))

@@ -16,11 +16,11 @@ class Misc(commands.Cog):
         ret = await db.debug_fetch_db(which_db)
         await inter.response.send_message(ret)
 
-    @commands.slash_command(name="add", dm_permission=False)
-    async def add(self, inter: Interaction):
+    @commands.slash_command(name="thread", dm_permission=False)
+    async def thread(self, inter: Interaction):
         pass
 
-    @add.sub_command(name="thread")
+    @thread.sub_command(name="create")
     async def add_thread(self, inter: Interaction, user2: disnakeUser):
         u1 = User(discord_id=inter.author.id)
         u2 = User(discord_id=user2.id)
@@ -31,8 +31,21 @@ class Misc(commands.Cog):
             user2=u2,
             next_user=u1
         )
-        await db.create_thread(thread=thread)
-        await inter.response.send_message(f"Thread successfully created between {u1.mention} and {u2.mention}!")
+        try:
+            await db.create_thread(thread=thread)
+            await inter.response.send_message(f"Thread successfully created between {u1.mention} and {u2.mention}!")
+        except ValueError as e:
+            await inter.response.send_message(f"Error: {e}", ephemeral=True)
+        
+
+    @thread.sub_command(name="next")
+    async def thread_next(self, inter: Interaction):
+        try:
+            thread = await db.get_thread_by_id(thread_id=inter.channel_id)
+            await inter.response.send_message(f"The user at bat in this thread is {thread.next_user.mention}.", ephemeral=True)
+        except(ValueError) as e:
+            await inter.response.send_message(f"Error: {e}", ephemeral=True)
+            return
 
 def setup(bot: commands.Bot):
     bot.add_cog(Misc(bot))

@@ -16,6 +16,18 @@ class Recommendation:
     is_closed: bool = False
 
     @classmethod
+    def parse_tuple(cls, row: Tuple) -> List["Recommendation"]:
+        return cls(
+            song=Song(name=row[0], artist=row[1]),
+            rater=User(discord_id=row[2]),
+            suggester=User(discord_id=row[3]),
+            guild=Guild(discord_id=row[4]),
+            timestamp=row[5],
+            rating = row[6],
+            is_closed = row[7]
+        )
+
+    @classmethod
     def parse_tuples(cls, tuples: List[Tuple]) -> List["Recommendation"]:
         return [
             cls(
