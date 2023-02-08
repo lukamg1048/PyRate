@@ -25,3 +25,67 @@ async def validate_request(inter: Interaction, thread: Thread):
     # ...and that they're actually at bat.
     if author != thread.next_user:
         raise ValueError("It is not your turn to make or rate a recommendation.")
+
+def build_table(title, headers : list[str], data : list[list], max_size = 50):
+    if len(headers) != len(data[0]):
+        raise ValueError("Headers and data do not match")
+    #calculate column sizes
+    column_sizes = []
+    for header in headers:
+        column_sizes.append(len(header))
+    for row in data:
+        #print("row: %s" % row)
+        for i in range(len(row)):
+            if len( str(row[i])) > column_sizes[i]:
+                column_sizes[i] = len(row[i])
+    for i in range(len(column_sizes)):
+        if column_sizes[i] > max_size:
+            column_sizes[i] = max_size
+    print(column_sizes)
+
+    total_size = int(sum(column_sizes) + len(column_sizes) - 1)
+    ret = "```\n"
+    ret += '-'* (total_size+2) + '\n'
+    right_pad = int(total_size - len(title))//2
+    left_pad = int(total_size - len(title) - right_pad)
+    print("Total size: %d Right pad: %d Left pad: %d" % (total_size, right_pad, left_pad))
+    ret += '|'+' '*left_pad + title + ' '*right_pad + '|\n'
+    ret += '|'+' '*total_size+"|\n"
+    for i in range(len(headers)):
+        header = headers[i]
+        column_size = column_sizes[i]
+
+        if len(header) > column_size:
+            header = header[:column_size - 3] + "..."
+
+        right_pad = int(column_size - len(header))//2
+        left_pad = int(column_size - len(header) - right_pad)
+        ret += '|' + ' '*left_pad + header + ' '*right_pad
+    ret += "|\n"
+    for row in data:
+        for i in range(len(row)):
+            datum = str(row[i])
+            column_size = column_sizes[i]
+
+            if len(datum) > column_size:
+                datum = datum[:column_size - 3] + "..."
+
+            right_pad = int(column_size - len(datum))//2
+            left_pad = int(column_size - len(datum) - right_pad)
+            ret += '|' + ' '*left_pad + datum + ' '*right_pad
+        ret += "|\n"
+    ret += '-'* (total_size+2) + '\n'
+    ret += "```"
+
+        
+        
+    print(ret)
+    
+if __name__ == "__main__":
+    head = "col1", "test col2", "Column with length!"
+    data = [
+        ["data1", 5, "data3"],
+        ["This is some data here", 321, "more daata"],
+        ["Even more data", 4563.94, "surprise: more data"]
+    ]
+    build_table("Test table", head, data, 20)
