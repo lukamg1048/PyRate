@@ -1,12 +1,11 @@
-from bot import PyRate
-from backend import DB
-from util import token
-
-
-db = DB()
-bot = PyRate()
-
 if __name__ == "__main__":
+    from bot import PyRate
+    from util import token
+    from db import DB
+
+    DB.setup()
+    bot = PyRate()
     bot.load_extension("cogs.misc")
     bot.load_extension("cogs.recommend")
+    bot.load_extension("cogs.admin")
     bot.run(token)

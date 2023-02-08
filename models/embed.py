@@ -20,12 +20,12 @@ class EmbedBuilder:
         arbitrary_types_allowed = True
 
     title: str
-    description: Optional[str]
-    timestamp: Optional[datetime]
-    fields: Optional[List[Field]]
-    thumbnail_url: Optional[str]
-    thumbnail_file: Optional[File]
-    image: Optional[File]
+    description: Optional[str] = None
+    timestamp: Optional[datetime] = None
+    fields: Optional[List[Field]] = None
+    thumbnail_url: Optional[str] = None
+    thumbnail_file: Optional[File] = None
+    image: Optional[File] = None
 
     async def build(self) -> Embed:
         self.fields = self.fields if self.fields is not None else []

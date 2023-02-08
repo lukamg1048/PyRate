@@ -1,24 +1,25 @@
-import asyncio
-from dataclasses import dataclass
 from datetime import datetime
 from pprint import pprint
 import sqlite3
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from models.snowflakes import User, Guild, Thread
 from models.song import Song
 from models.recommendation import Recommendation
 
 class DB():
-    def __init__(self, truncate=False) -> None:
-        self.con = sqlite3.connect("pyrate.db")
-        self.cur = self.con.cursor()
-        self.cur.execute('PRAGMA foreign_keys = ON')
-        self.cur.execute('''CREATE TABLE IF NOT EXISTS user(
-            discord_id NUMERIC PRIMARY KEY NOT NULL
+
+    @classmethod
+    def setup(cls, truncate=False) -> None:
+        cls.con = sqlite3.connect("pyrate.db")
+        cls.cur = cls.con.cursor()
+        cls.cur.execute('PRAGMA foreign_keys = ON')
+        cls.cur.execute('''
+            CREATE TABLE IF NOT EXISTS user(
+                discord_id NUMERIC PRIMARY KEY NOT NULL
             );
         ''')
-        self.cur.execute('''
+        cls.cur.execute('''
             CREATE TABLE IF NOT EXISTS thread(
                 thread_id NUMERIC PRIMARY KEY NOT NULL,
                 guild_id NUMERIC NOT NULL,
@@ -31,16 +32,19 @@ class DB():
                 FOREIGN KEY(user2_id) REFERENCES user (discord_id)
                     ON DELETE CASCADE
                     ON UPDATE CASCADE
+                FOREIGN KEY (next_user) REFERENCES user (discord_id) 
+                    ON DELETE CASCADE 
+                    ON UPDATE CASCADE
             );
         ''')
-        self.cur.execute('''
+        cls.cur.execute('''
             CREATE TABLE IF NOT EXISTS song(
                 song_name varchar NOT NULL COLLATE NOCASE,
                 artist varchar NOT NULL COLLATE NOCASE,
                 PRIMARY KEY(song_name, artist)
             );
         ''')
-        self.cur.execute('''
+        cls.cur.execute('''
             CREATE TABLE IF NOT EXISTS recommendation(
                 song_name varchar NOT NULL COLLATE NOCASE,
                 artist varchar NOT NULL COLLATE NOCASE,
@@ -62,35 +66,44 @@ class DB():
             );
         ''')
         if truncate:
-            self.cur.execute('DELETE FROM user')
-            self.cur.execute('DELETE FROM song')
-            self.cur.execute('DELETE FROM recommendation')
+            cls.cur.execute('DELETE FROM user')
+            cls.cur.execute('DELETE FROM song')
+            cls.cur.execute('DELETE FROM recommendation')
 
-    async def _add_user(self, user: User) -> None:
-        self.cur.execute('''INSERT INTO user VALUES(?)''', (user.discord_id,))
-    async def _does_user_exist(self, user: User) -> bool:
-        self.cur.execute('''SELECT * FROM user WHERE discord_id = ?''', (user.discord_id,))
-        return bool(self.cur.fetchone())
+    @classmethod
+    async def _add_user(cls, user: User) -> None:
+        cls.cur.execute('''INSERT INTO user VALUES(?)''', (user.discord_id,))
 
-    async def _add_song(self, song: Song) -> None:
-        self.cur.execute('''INSERT INTO song VALUES(?, ?)''', (song.name, song.artist))
-    async def _does_song_exist(self, song: Song) -> bool:
-        self.cur.execute('''SELECT * FROM song WHERE song_name = ? and artist = ?''', (song.name, song.artist))
-        return bool(self.cur.fetchone())
+    @classmethod
+    async def _does_user_exist(cls, user: User) -> bool:
+        cls.cur.execute('''SELECT * FROM user WHERE discord_id = ?''', (user.discord_id,))
+        return bool(cls.cur.fetchone())
 
-    async def _add_thread(self, thread: Thread) -> None:
-        self.cur.execute(
+    @classmethod
+    async def _add_song(cls, song: Song) -> None:
+        cls.cur.execute('''INSERT INTO song VALUES(?, ?)''', (song.name, song.artist))
+    
+    @classmethod
+    async def _does_song_exist(cls, song: Song) -> bool:
+        cls.cur.execute('''SELECT * FROM song WHERE song_name = ? and artist = ?''', (song.name, song.artist))
+        return bool(cls.cur.fetchone())
+
+    @classmethod
+    async def _add_thread(cls, thread: Thread) -> None:
+        cls.cur.execute(
             '''INSERT INTO thread VALUES(?, ?, ?, ?, ?)''',
             (thread.thread_id, thread.guild.discord_id, thread.user1.discord_id, thread.user2.discord_id, thread.next_user.discord_id)
         )
+
+    @classmethod
     # Can be used with either a thread object or a thread id int
-    async def _does_thread_exist(self, *, thread_id: int = None, thread: Thread = None) -> bool:
-        self.cur.execute('''SELECT * FROM thread WHERE thread_id = ?''', (thread_id or thread.thread_id,))
-        return bool(self.cur.fetchone())
+    async def _does_thread_exist(cls, *, thread_id: int = None, thread: Thread = None) -> bool:
+        cls.cur.execute('''SELECT * FROM thread WHERE thread_id = ?''', (thread_id or thread.thread_id,))
+        return bool(cls.cur.fetchone())
 
-
-    async def _add_rec_manual(self, rec:Recommendation) -> None:
-        self.cur.execute(
+    @classmethod
+    async def _add_rec_manual(cls, rec:Recommendation) -> None:
+        cls.cur.execute(
                 '''INSERT INTO recommendation VALUES(?, ?, ?, ?, ?, ?, ?, ?)''',
                 (
                     rec.song.name, 
@@ -104,162 +117,202 @@ class DB():
                 )
             )
 
-    async def _create_open_rec(self, rec: Recommendation) -> None:
-        self.cur.execute(
+    @classmethod
+    async def _create_open_rec(cls, rec: Recommendation) -> None:
+        cls.cur.execute(
             '''INSERT INTO recommendation VALUES(?, ?, ?, ?, ?, ?, -1, 0)''',
             (rec.song.name, rec.song.artist, rec.rater.discord_id, rec.suggester.discord_id, rec.guild.discord_id, rec.timestamp)
         )
 
-    async def _close_rec(self, rec: Recommendation) -> None:
-        self.cur.execute('''
+    @classmethod
+    async def _close_rec(cls, rec: Recommendation) -> None:
+        cls.cur.execute('''
                 UPDATE recommendation SET rating = ?, is_closed = 1 
                 WHERE song_name = ? AND artist = ? AND rater_id = ? AND suggester_id = ? AND guild_id = ?
             ''',
             (rec.rating, rec.song.name, rec.song.artist, rec.rater.discord_id, rec.suggester.discord_id, rec.guild.discord_id)
         )
 
-    async def _does_rating_exist(self, rec: Recommendation) -> bool:
-        self.cur.execute('''
+    @classmethod
+    async def _does_rating_exist(cls, rec: Recommendation, is_closed: int = 1) -> bool:
+        cls.cur.execute('''
                 SELECT * FROM recommendation 
-                WHERE song_name = ? AND artist = ? AND rater_id = ? AND suggester_id = ? AND guild_id = ? AND is_closed = 1
+                WHERE song_name = ? AND artist = ? AND rater_id = ? AND suggester_id = ? AND guild_id = ? AND is_closed = ?
             ''',
-            (rec.song.name, rec.song.artist, rec.rater.discord_id, rec.suggester.discord_id, rec.guild.discord_id)
+            (rec.song.name, rec.song.artist, rec.rater.discord_id, rec.suggester.discord_id, rec.guild.discord_id, is_closed)
         )
-        return bool(self.cur.fetchone())
+        return bool(cls.cur.fetchone())
 
-    async def debug_fetch_db(self, which_db: str):
+    @classmethod
+    async def debug_fetch_db(cls, which_db: str):
         match which_db:
             case "user":
-                self.cur.execute('''SELECT * FROM user''')
+                cls.cur.execute('''SELECT * FROM user''')
             case "thread":
-                self.cur.execute('''SELECT * FROM thread''')
+                cls.cur.execute('''SELECT * FROM thread''')
             case "song":
-                self.cur.execute('''SELECT * FROM song''')
+                cls.cur.execute('''SELECT * FROM song''')
             case "recommendation":
-                self.cur.execute('''SELECT * FROM recommendation''')
-        return self.cur.fetchall()
+                cls.cur.execute('''SELECT * FROM recommendation''')
+        return cls.cur.fetchall()
+
+    @classmethod
+    async def does_thread_have_open_rec(cls, thread: Thread) -> bool:
+        cls.cur.execute('''
+                SELECT * FROM recommendation
+                WHERE rater_id = ? AND suggester_id = ? AND is_closed = 0
+            ''',
+            (thread.next_user.discord_id, thread.other_user.discord_id)
+        )
+        return bool(cls.cur.fetchone())
 
     # Create an open recommendation, and add any users, artists, and songs that are not currently stored.
-    async def create_open_rec(self, rec: Recommendation) -> None:
-        if not await self._does_user_exist(rec.rater):
-            await self._add_user(rec.rater)
-        if not await self._does_user_exist(rec.suggester):
-            await self._add_user(rec.suggester)
-        if not await self._does_song_exist(rec.song):
-            await self._add_song(rec.song)
+    @classmethod
+    async def create_open_rec(cls, rec: Recommendation) -> None:
+        if not await cls._does_user_exist(rec.rater):
+            await cls._add_user(rec.rater)
+        if not await cls._does_user_exist(rec.suggester):
+            await cls._add_user(rec.suggester)
+        if not await cls._does_song_exist(rec.song):
+            await cls._add_song(rec.song)
 
-        await self._create_open_rec(rec) 
-        self.con.commit()
+        await cls._create_open_rec(rec) 
+        cls.con.commit()
 
     # Close an open recommendation by providing a rating. 
-    async def close_rec(self, rec: Recommendation) -> None:
-        if await self._does_rating_exist(rec):
-            await self._close_rec(rec)
-            self.con.commit()
+    @classmethod
+    async def close_rec(cls, rec: Recommendation) -> None:
+        if await cls._does_rating_exist(rec, is_closed = 0):
+            await cls._close_rec(rec)
+            cls.con.commit()
         else:
             raise ValueError("Attempted to close a non-existent rec.")
         
 
     # Manually add a (most likely closed) rating
-    async def add_rating_manual(self, rec: Recommendation) -> None:
-        if not await self._does_user_exist(rec.rater):
-            await self._add_user(rec.rater)
-        if not await self._does_user_exist(rec.suggester):
-            await self._add_user(rec.suggester)
-        if not await self._does_song_exist(rec.song):
-            await self._add_song(rec.song)
-        if await self._does_rating_exist(rec):
+    @classmethod
+    async def add_rating_manual(cls, rec: Recommendation) -> None:
+        if not await cls._does_user_exist(rec.rater):
+            await cls._add_user(rec.rater)
+        if not await cls._does_user_exist(rec.suggester):
+            await cls._add_user(rec.suggester)
+        if not await cls._does_song_exist(rec.song):
+            await cls._add_song(rec.song)
+        if await cls._does_rating_exist(rec):
             raise ValueError("Attempted to create a pre-existing rec.")
         else:
-            await self._add_rec_manual(rec)
-            self.con.commit()
+            await cls._add_rec_manual(rec)
+            cls.con.commit()
 
-    async def create_thread(self, thread: Thread) -> None:
-        if not await self._does_user_exist(thread.user1):
-            await self._add_user(thread.user1)
-        if not await self._does_user_exist(thread.user2):
-            await self._add_user(thread.user2)
-        if await self._does_thread_exist(thread=thread):
+    @classmethod
+    async def create_thread(cls, thread: Thread) -> None:
+        if not await cls._does_user_exist(thread.user1):
+            await cls._add_user(thread.user1)
+        if not await cls._does_user_exist(thread.user2):
+            await cls._add_user(thread.user2)
+        if await cls._does_thread_exist(thread=thread):
             raise ValueError("Attempted to create a pre-existing thread")
         else:
-            await self._add_thread(thread)
-            self.con.commit()
+            await cls._add_thread(thread)
+            cls.con.commit()
 
-    async def get_thread_by_id(self, thread_id: int) -> Thread:
-        if await self._does_thread_exist(thread_id=thread_id):
-            self.cur.execute(
+    @classmethod
+    async def get_thread_by_id(cls, thread_id: int) -> Thread:
+        if await cls._does_thread_exist(thread_id=thread_id):
+            cls.cur.execute(
                 '''SELECT * FROM thread where thread_id = ?''',
                 (thread_id,)
             )
-            return Thread.parse_tuple(self.cur.fetchone())
+            return Thread.parse_tuple(cls.cur.fetchone())
         else:
-            raise ValueError("Thread not found.")
+            raise ValueError("Command not used in an established thread.")
 
-
-    async def flip_thread(self, thread: Thread, next_user: User) -> None:
-        if await self._does_thread_exist(thread):
-            self.cur.execute(
+    @classmethod
+    async def flip_thread(cls, thread: Thread, next_user: User = None) -> Thread:
+        next_user = next_user or thread.other_user
+        if await cls._does_thread_exist(thread=thread):
+            cls.cur.execute(
                 '''UPDATE thread SET next_user = ? WHERE thread_id = ?''',
-                (next_user, thread.thread_id)
+                (next_user.discord_id, thread.thread_id)
             )
-            self.con.commit()
+            cls.con.commit()
+        thread.next_user = next_user
+        return thread
 
-    async def get_waiting_threads_by_user(self, user: User) -> List[Thread]:
-        self.cur.execute('''
+    @classmethod
+    async def get_waiting_threads_by_user(cls, user: User) -> List[Thread]:
+        cls.cur.execute('''
                 SELECT * FROM thread WHERE next_user = ?
             ''',
             (user.discord_id,)
         )
-        return Thread.parse_tuples(self.cur.fetchall())
+        return Thread.parse_tuples(cls.cur.fetchall())
 
+    # Fetch the open rec (if any) in a thread
+    @classmethod
+    async def get_open_rating_by_thread(cls, thread: Thread) -> Optional[Recommendation]:
+        cls.cur.execute('''
+                SELECT * FROM recommendation
+                WHERE rater_id = ? AND suggester_id = ? AND is_closed = 0
+            ''',
+            (thread.next_user.discord_id, thread.other_user.discord_id)    
+        )
+        return Recommendation.parse_tuple(cls.cur.fetchone())
+        
 
     # These two functions fetch all recommendations for a specific rater, either closed or open.
-    async def get_ratings_by_rater(self, rater: User, is_closed = 1) -> List[Recommendation]:
-        self.cur.execute('''
+    @classmethod
+    async def get_ratings_by_rater(cls, rater: User, is_closed = 1) -> List[Recommendation]:
+        cls.cur.execute('''
                 SELECT * FROM recommendation 
                 WHERE rater_id = ? AND is_closed = ?
             ''', 
             (rater.discord_id, is_closed)
         )
         # Parse elements into dataclass in schema order 
-        return Recommendation.parse_tuples(self.cur.fetchall())
+        return Recommendation.parse_tuples(cls.cur.fetchall())
 
-    async def get_open_recs_by_rater(self, rater: User) -> List[Recommendation]:
-       return await self.get_ratings_by_rater(rater, is_closed=0)
-    
+    @classmethod
+    async def get_open_recs_by_rater(cls, rater: User) -> List[Recommendation]:
+       return await cls.get_ratings_by_rater(rater, is_closed=0)
+
     # Fetch all recommendations of a specific song
-    async def get_ratings_by_song(self, song: Song) -> List[Recommendation]:
-        self.cur.execute('''
+    @classmethod
+    async def get_ratings_by_song(cls, song: Song) -> List[Recommendation]:
+        cls.cur.execute('''
                 SELECT * FROM recommendation 
                 WHERE song_name = ? and artist = ? AND is_closed = 1
             ''', 
             (song.name, song.artist)
         )
-        return Recommendation.parse_tuples(self.cur.fetchall())
+        return Recommendation.parse_tuples(cls.cur.fetchall())
     
     # Fetch all recommendations of a specific song
-    async def get_ratings_by_artist(self, artist) -> List[Recommendation]:
-        self.cur.execute('''
+    @classmethod
+    async def get_ratings_by_artist(cls, artist) -> List[Recommendation]:
+        cls.cur.execute('''
                 SELECT * FROM recommendation 
                 WHERE artist = ? AND is_closed = 1
             ''', (artist,)
         )
-        return Recommendation.parse_tuples(self.cur.fetchall())
+        return Recommendation.parse_tuples(cls.cur.fetchall())
 
     # Takes two user IDs and returns all ratings between the two
-    async def get_ratings_by_pair(self, a: User, b: User) -> List[Recommendation]:
-        self.cur.execute('''
+    @classmethod
+    async def get_ratings_by_pair(cls, a: User, b: User) -> List[Recommendation]:
+        cls.cur.execute('''
                 SELECT * FROM recommendation 
                 WHERE rater_id IN (:a, :b) and suggester_id in (:a, :b) AND is_closed = 1
             ''', 
             {"a": a.discord_id, "b": b.discord_id}
         )
-        return Recommendation.parse_tuples(self.cur.fetchall())
+        return Recommendation.parse_tuples(cls.cur.fetchall())
 
 
     #takes two user IDs as inputs and returns all songs they have both rated
-    async def get_overlap(self, rater_a: User, rater_b: User) -> List[Tuple[Recommendation]]:
-        self.cur.execute('''
+    @classmethod
+    async def get_overlap(cls, rater_a: User, rater_b: User) -> List[Tuple[Recommendation]]:
+        cls.cur.execute('''
                 SELECT 
                     a.song_name, a.artist, a.guild_id,
                     a.suggester_id, a.timestamp, a.rating_a, 
@@ -297,7 +350,7 @@ class DB():
                     is_closed=True
                 )
             )
-            for item in self.cur.fetchall()
+            for item in cls.cur.fetchall()
         ]
 
 
@@ -491,4 +544,5 @@ async def lame_ass_test_suite():
     pprint(await backEnd.get_overlap(User(2),User(3)))
 
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(lame_ass_test_suite())
