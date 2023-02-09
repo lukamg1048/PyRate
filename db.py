@@ -421,7 +421,7 @@ class DB():
                 SELECT SUM(rating) FROM recommendation 
                     WHERE suggester_id = ? 
                     AND is_closed
-                ''',(suggester.discord_id)
+                ''',(suggester.discord_id,)
             )
             return cls.cur.fetchone()[0]
         else:

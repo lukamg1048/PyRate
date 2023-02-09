@@ -26,9 +26,11 @@ async def validate_request(inter: Interaction, thread: Thread):
     if author != thread.next_user:
         raise ValueError("It is not your turn to make or rate a recommendation.")
 
-def build_table(title, headers : list[str], data : list[list], max_size = 50):
+def build_table(title, headers : list[str], data : list[list], min_total_size = 30, max_column_size = 50):
     if len(headers) != len(data[0]):
         raise ValueError("Headers and data do not match")
+    if min_total_size < len(title):
+        min_total_size = len(title) + 2
     #calculate column sizes
     column_sizes = []
     for header in headers:
@@ -39,16 +41,21 @@ def build_table(title, headers : list[str], data : list[list], max_size = 50):
             if len( str(row[i])) > column_sizes[i]:
                 column_sizes[i] = len(row[i])
     for i in range(len(column_sizes)):
-        if column_sizes[i] > max_size:
-            column_sizes[i] = max_size
-    print(column_sizes)
+        if column_sizes[i] > max_column_size:
+            column_sizes[i] = max_column_size
+    #print(column_sizes)
 
     total_size = int(sum(column_sizes) + len(column_sizes) - 1)
+    while total_size < min_total_size:
+        for i in range(len(column_sizes)):
+            column_sizes[i]+=1
+        total_size = int(sum(column_sizes) + len(column_sizes) - 1)
+
     ret = "```\n"
     ret += '-'* (total_size+2) + '\n'
     right_pad = int(total_size - len(title))//2
     left_pad = int(total_size - len(title) - right_pad)
-    print("Total size: %d Right pad: %d Left pad: %d" % (total_size, right_pad, left_pad))
+    #print("Total size: %d Right pad: %d Left pad: %d" % (total_size, right_pad, left_pad))
     ret += '|'+' '*left_pad + title + ' '*right_pad + '|\n'
     ret += '|'+' '*total_size+"|\n"
     for i in range(len(headers)):
@@ -77,9 +84,7 @@ def build_table(title, headers : list[str], data : list[list], max_size = 50):
     ret += '-'* (total_size+2) + '\n'
     ret += "```"
 
-        
-        
-    print(ret)
+    return(ret)
     
 if __name__ == "__main__":
     head = "col1", "test col2", "Column with length!"
