@@ -1,7 +1,7 @@
 from datetime import datetime
 from pprint import pprint
 import sqlite3
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, overload
 
 from models.snowflakes import User, Guild, Thread
 from models.song import Song
@@ -258,7 +258,17 @@ class DB():
             (thread.next_user.discord_id, thread.other_user.discord_id)    
         )
         return Recommendation.parse_tuple(cls.cur.fetchone())
-        
+    
+    @classmethod
+    async def get_ratings_by_suggester(cls, suggester: User, is_closed = 1) -> List[Recommendation]:
+        cls.cur.execute('''
+                SELECT * FROM recommendation 
+                WHERE suggester_id = ? AND is_closed = ?
+            ''', 
+            (suggester.discord_id, is_closed)
+        )
+        # Parse elements into dataclass in schema order 
+        return Recommendation.parse_tuples(cls.cur.fetchall())
 
     # These two functions fetch all recommendations for a specific rater, either closed or open.
     @classmethod
@@ -352,6 +362,149 @@ class DB():
             )
             for item in cls.cur.fetchall()
         ]
+    
+    #This returns a list, even though it is a superlative, because two recommendations may share a max rating   
+    @classmethod
+    async def get_max_rating(cls, suggester : User, rater : User = None) -> List[Recommendation]:
+        #print("suggester: {suggester}, rater: {rater}".format(suggester=suggester.discord_id, rater=rater.discord_id))        
+        if rater == None:
+            print 
+            cls.cur.execute('''
+                SELECT * FROM recommendation 
+                    WHERE suggester_id = :suggester
+                    AND rating = (
+                        SELECT MAX(rating) FROM recommendation WHERE suggester_id = :suggester
+                    )
+                ''',
+                {"suggester": suggester.discord_id}
+                
+            )
+            return Recommendation.parse_tuples(cls.cur.fetchall())            
+        else:
+            cls.cur.execute('''
+                SELECT * FROM recommendation 
+                    WHERE suggester_id = :suggester AND rater_id = :rater
+                    AND rating = (
+                        SELECT MAX(rating) FROM recommendation WHERE suggester_id = :suggester AND rater_id = :rater
+                    )
+                ''',
+                {"suggester": suggester.discord_id, "rater": rater.discord_id}
+            )
+            return Recommendation.parse_tuples(cls.cur.fetchall())
+
+    @classmethod
+    async def get_average_rating(cls, suggester : User, rater : User = None) -> float:
+        if rater == None:
+            cls.cur.execute('''
+                SELECT AVG(rating) FROM recommendation 
+                    WHERE suggester_id = :suggester
+                    AND is_closed 
+                ''',
+                {"suggester": suggester.discord_id}
+            )
+            return cls.cur.fetchone()[0]
+        else:
+            cls.cur.execute('''
+                SELECT AVG(rating) FROM recommendation 
+                    WHERE suggester_id = :suggester
+                    AND rater_id = :rater
+                    AND is_closed
+                ''',
+                {"suggester": suggester.discord_id, "rater": rater.discord_id}
+            )
+            return cls.cur.fetchone()[0]
+
+    @classmethod
+    async def get_total_rating(cls, suggester : User, rater : User = None) -> float:
+        if rater == None:
+            cls.cur.execute('''
+                SELECT SUM(rating) FROM recommendation 
+                    WHERE suggester_id = ? 
+                    AND is_closed
+                ''',(suggester.discord_id,)
+            )
+            return cls.cur.fetchone()[0]
+        else:
+            cls.cur.execute('''
+                SELECT SUM(rating) FROM recommendation 
+                    WHERE suggester_id = ? 
+                    AND rater_id = ?
+                    AND is_closed
+                ''',(suggester.discord_id, rater.discord_id)
+            )
+            return cls.cur.fetchone()[0]
+           
+    @classmethod
+    async def get_max_ratings(cls, rater : User = None) -> List[Recommendation]:
+        if rater:
+            cls.cur.execute('''
+                SELECT song_name, artist, rater_id, suggester_id, guild_id, timestamp, MAX(rating) as rating, is_closed \
+                    FROM recommendation 
+                    WHERE is_closed
+                    AND rater_id = ?
+                    GROUP BY suggester_id 
+                    ORDER BY rating DESC
+                ''', (rater.discord_id,))
+            return Recommendation.parse_tuples(cls.cur.fetchall())
+        else:
+            cls.cur.execute('''
+                SELECT song_name, artist, rater_id, suggester_id, guild_id, timestamp, MAX(rating) as rating, is_closed \
+                    FROM recommendation 
+                    WHERE is_closed
+                    GROUP BY suggester_id 
+                    ORDER BY rating DESC
+            ''')
+            return Recommendation.parse_tuples(cls.cur.fetchall())
+
+    @classmethod
+    async def get_average_ratings(cls, rater : User = None) -> Tuple[float, User]:
+        if rater == None:
+            cls.cur.execute('''
+                SELECT AVG(rating) as avg_rating, suggester_id 
+                    FROM recommendation 
+                    WHERE is_closed
+                    GROUP BY suggester_id 
+                    ORDER BY avg_rating DESC
+                ''')
+            return [(rating, User(id)) for rating, id in cls.cur.fetchall()]
+        else:
+            cls.cur.execute('''
+                SELECT AVG(rating) as avg_rating, suggester_id 
+                    FROM recommendation 
+                    WHERE is_closed
+                    AND rater_id = ?
+                    GROUP BY suggester_id 
+                    ORDER BY avg_rating DESC
+                ''', (rater.discord_id,))
+            return [(rating, User(id)) for rating, id in cls.cur.fetchall()]
+
+
+    @classmethod
+    async def get_total_ratings(cls, rater : User = None) -> Tuple[float, User]:
+        if rater == None:
+            cls.cur.execute('''
+                SELECT SUM(rating) as total_rating, suggester_id 
+                    FROM recommendation 
+                    WHERE is_closed
+                    GROUP BY suggester_id 
+                    ORDER BY total_rating DESC
+                ''')
+            return [(rating, User(id)) for rating, id in cls.cur.fetchall()]
+        else:
+            cls.cur.execute('''
+                SELECT SUM(rating) as total_rating, suggester_id 
+                    FROM recommendation 
+                    WHERE is_closed
+                    AND rater_id = ?
+                    GROUP BY suggester_id 
+                    ORDER BY total_rating DESC
+                ''', (rater.discord_id,))
+            return [(rating, User(id)) for rating, id in cls.cur.fetchall()]
+
+
+    
+
+
 
 
 async def lame_ass_test_suite():
