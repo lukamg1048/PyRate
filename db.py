@@ -436,12 +436,12 @@ class DB():
            
     @classmethod
     async def get_max_ratings(cls, rater : User = None) -> List[Recommendation]:
-        if rater == None:
+        if rater:
             cls.cur.execute('''
                 SELECT song_name, artist, rater_id, suggester_id, guild_id, timestamp, MAX(rating) as rating, is_closed \
                     FROM recommendation 
                     WHERE is_closed
-                    AND rater = ?
+                    AND rater_id = ?
                     GROUP BY suggester_id 
                     ORDER BY rating DESC
                 ''', (rater.discord_id,))
@@ -457,7 +457,7 @@ class DB():
             return Recommendation.parse_tuples(cls.cur.fetchall())
 
     @classmethod
-    async def get_avg_ratings(cls, rater : User = None) -> Tuple[float, User]:
+    async def get_average_ratings(cls, rater : User = None) -> Tuple[float, User]:
         if rater == None:
             cls.cur.execute('''
                 SELECT AVG(rating) as avg_rating, suggester_id 

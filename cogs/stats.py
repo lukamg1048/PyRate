@@ -92,6 +92,99 @@ class Stats(commands.Cog):
             await inter.response.send_message(f"Error: {e}", ephemeral=True)
             print_exception(e)
             return
+    
+    @commands.slash_command(name="leaderboard", dm_permission=False)
+    async def leaderboard(self, inter: Interaction):
+        pass
+
+    @leaderboard.sub_command(name="max")
+    async def leaderboard_max(
+        self,
+        inter: Interaction,
+        rater: disnakeUser = None
+    ): 
+
+
+        try:
+            if rater:
+                ratings = await DB.get_max_ratings(User(rater.id))
+                title = f"{inter.author.name}'s Highest Ratings"
+            else:
+                ratings = await DB.get_max_ratings()
+                title = f"Highest Rated Suggestion Leaderboard"
+
+            headers = "Song", "Artist", "Suggester", "Rater", "Rating"
+            data = []
+            for rating in ratings:
+                s_user = await self.bot.getch_user(rating.suggester.discord_id)
+                r_user = await self.bot.getch_user(rating.rater.discord_id)
+                data.append((rating.song.name, rating.song.artist, s_user.name, r_user.name, rating.rating))
+            message = build_table(title, headers, data)
+            await inter.response.send_message(message)
+            return
+        except Exception as e:
+            await inter.response.send_message(f"Error: {e}", ephemeral=True)
+            print_exception(e)
+            return
+    
+    @leaderboard.sub_command(name="average")
+    async def leaderboard_average(
+        self,
+        inter: Interaction,
+        rater: disnakeUser = None
+    ): 
+
+
+        try:
+            if rater:
+                tups = await DB.get_average_ratings(User(rater.id))
+                title = f"{inter.author.name}'s Ratings Average Leaderboard"
+            else:
+                tups = await DB.get_average_ratings()
+                title = f"Ratings Average Leaderboard"
+
+            headers = "User", "Average Rating"
+            data = []
+            for tup in tups:
+                s_user = await self.bot.getch_user(tup[1].discord_id)
+                data.append((s_user.name, round(tup[0], 1)))
+            message = build_table(title, headers, data)
+            await inter.response.send_message(message)
+            return
+        except Exception as e:
+            await inter.response.send_message(f"Error: {e}", ephemeral=True)
+            print_exception(e)
+            return
+
+    @leaderboard.sub_command(name="total")
+    async def leaderboard_total(
+        self,
+        inter: Interaction,
+        rater: disnakeUser = None
+    ): 
+
+
+        try:
+            if rater:
+                tups = await DB.get_total_ratings(User(rater.id))
+                title = f"{inter.author.name}'s Total Points Leaderboard"
+            else:
+                tups = await DB.get_total_ratings()
+                title = f"Total Points Leaderboard"
+
+            headers = "User", "Total Points"
+            data = []
+            for tup in tups:
+                s_user = await self.bot.getch_user(tup[1].discord_id)
+                data.append((s_user.name, round(tup[0], 1)))
+            message = build_table(title, headers, data)
+            await inter.response.send_message(message)
+            return
+        except Exception as e:
+            await inter.response.send_message(f"Error: {e}", ephemeral=True)
+            print_except
+        
+        
       
 def setup(bot: commands.Bot):
     bot.add_cog(Stats(bot))

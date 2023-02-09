@@ -56,8 +56,8 @@ def build_table(title, headers : list[str], data : list[list], min_total_size = 
     right_pad = int(total_size - len(title))//2
     left_pad = int(total_size - len(title) - right_pad)
     #print("Total size: %d Right pad: %d Left pad: %d" % (total_size, right_pad, left_pad))
-    ret += '|'+' '*left_pad + title + ' '*right_pad + '|\n'
-    ret += '|'+' '*total_size+"|\n"
+    ret += '|'+' '*left_pad + title + ' '*right_pad + '|\n\n'
+    #ret += '|'+' '*total_size+"|\n"
     for i in range(len(headers)):
         header = headers[i]
         column_size = column_sizes[i]
@@ -68,7 +68,7 @@ def build_table(title, headers : list[str], data : list[list], min_total_size = 
         right_pad = int(column_size - len(header))//2
         left_pad = int(column_size - len(header) - right_pad)
         ret += '|' + ' '*left_pad + header + ' '*right_pad
-    ret += "|\n"
+    ret += "|\n\n"
     for row in data:
         for i in range(len(row)):
             datum = str(row[i])
@@ -80,7 +80,7 @@ def build_table(title, headers : list[str], data : list[list], min_total_size = 
             right_pad = int(column_size - len(datum))//2
             left_pad = int(column_size - len(datum) - right_pad)
             ret += '|' + ' '*left_pad + datum + ' '*right_pad
-        ret += "|\n"
+        ret += "|\n\n"
     ret += '-'* (total_size+2) + '\n'
     ret += "```"
 
