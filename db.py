@@ -132,6 +132,14 @@ class DB():
             ''',
             (rec.rating, rec.song.name, rec.song.artist, rec.rater.discord_id, rec.suggester.discord_id, rec.guild.discord_id)
         )
+    @classmethod
+    async def _delete_rec(cls, rec: Recommendation) -> None:
+        cls.cur.execute('''
+                DELETE FROM recommendation
+                WHERE song_name = ? AND artist = ? AND rater_id = ? AND suggester_id = ? AND guild_id = ?
+            ''',
+            (rec.song.name, rec.song.artist, rec.rater.discord_id, rec.suggester.discord_id, rec.guild.discord_id)
+        )
 
     @classmethod
     async def _does_rating_exist(cls, rec: Recommendation, is_closed: int = 1) -> bool:
@@ -313,6 +321,7 @@ class DB():
         cls.cur.execute('''
                 SELECT * FROM recommendation 
                 WHERE rater_id IN (:a, :b) and suggester_id in (:a, :b) AND is_closed = 1
+                ORDER BY timestamp desc
             ''', 
             {"a": a.discord_id, "b": b.discord_id}
         )
