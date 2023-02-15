@@ -299,13 +299,28 @@ class DB():
     async def get_ratings_by_song(cls, song: Song) -> List[Recommendation]:
         cls.cur.execute('''
                 SELECT * FROM recommendation 
-                WHERE song_name = ? and artist = ? AND is_closed = 1
+                WHERE song_name = ? AND artist = ? AND is_closed = 1
             ''', 
             (song.name, song.artist)
         )
         return Recommendation.parse_tuples(cls.cur.fetchall())
+
+    # Used for rerate() method
+    @classmethod
+    async def get_ratings_by_song_and_pair(cls, song: Song, rater: User, suggester:User) -> List[Recommendation]:
+        print(f'''
+                SELECT * FROM recommendation 
+                WHERE song_name = {song.name} AND artist = {song.artist} AND is_closed = 1 AND rater_id = {rater.discord_id} AND suggester_id = {suggester.discord_id}
+            ''')
+        cls.cur.execute('''
+                SELECT * FROM recommendation 
+                WHERE song_name = ? AND artist = ? AND is_closed = 1 AND rater_id = ? AND suggester_id = ?
+            ''', 
+            (song.name, song.artist, rater.discord_id, suggester.discord_id)
+        )
+        return Recommendation.parse_tuples(cls.cur.fetchall())
     
-    # Fetch all recommendations of a specific song
+    # Fetch all recommendations of a specific artist
     @classmethod
     async def get_ratings_by_artist(cls, artist) -> List[Recommendation]:
         cls.cur.execute('''
