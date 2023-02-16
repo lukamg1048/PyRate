@@ -27,7 +27,7 @@ async def validate_request(inter: Interaction, thread: Thread):
         raise ValueError("It is not your turn to make or rate a recommendation.")
 
 async def validate_request_recommender(inter: Interaction, thread: Thread):
-    #veriation of above function that validates the user with an open recommendation 
+    #variation of above function that validates the user with an open recommendation 
     author = User(inter.author.id)
     if author not in thread:
         raise ValueError("You are not a member of the current thread.")

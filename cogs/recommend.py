@@ -60,26 +60,22 @@ class Recommend(commands.Cog):
         await DB.close_rec(rec)
         await inter.response.send_message(f"{rec.suggester.mention}, your recommendation has been rated **{rec.rating}/10**. Any additional comments may be given above or below.")
     
-    @commands.slash_command(name="clear_reccomendation", description="Clears your active recommendation", dm_permission=False)
+    @commands.slash_command(name="clear_recomendation", description="Clears your active recommendation", dm_permission=False)
     async def clear_rec(self, inter):
         try:
             thread = await fetch_thread(inter)
-            print(f"Thread: {thread}")
         except(Exception) as e:
             await inter.response.send_message(f"Error: {e}", ephemeral=True)
             return
 
         await validate_request_recommender(inter, thread)
-        print("request validated")
 
         rec = await DB.get_open_rating_by_thread(thread)
         if not rec:
             await inter.response.send_message("Error: There is no open recommendation to clear.", ephemeral=True)
             return
         try:
-            print("deleting rec")
             await DB._delete_rec(rec)
-            print("deleted rec")
             await DB.flip_thread(thread=thread, next_user=User(inter.author.id))
         except(Exception) as e:
             await inter.response.send_message(f"Could not delete recommendation: {e}", ephemeral=True)
