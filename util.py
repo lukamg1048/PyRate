@@ -26,6 +26,14 @@ async def validate_request(inter: Interaction, thread: Thread):
     if author != thread.next_user:
         raise ValueError("It is not your turn to make or rate a recommendation.")
 
+async def validate_request_recommender(inter: Interaction, thread: Thread):
+    #variation of above function that validates the user with an open recommendation 
+    author = User(inter.author.id)
+    if author not in thread:
+        raise ValueError("You are not a member of the current thread.")
+    if author == thread.next_user:
+        raise ValueError("You're not the active recommender")
+
 def build_table(title, headers : list[str], data : list[list], min_total_size = 30, max_column_size = 50):
     if len(headers) != len(data[0]):
         raise ValueError("Headers and data do not match")

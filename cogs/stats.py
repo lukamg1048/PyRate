@@ -48,7 +48,7 @@ class Stats(commands.Cog):
             #await inter.response.send_message(f"Your max rating is {ratings}", ephemeral=True)
         except Exception as e:
             await inter.response.send_message(f"Error: {e}", ephemeral=True)
-            print_exception(e)
+            #print_exception(e)
             return
     
     @stats.sub_command(name="average")
@@ -69,7 +69,7 @@ class Stats(commands.Cog):
             
         except Exception as e:
             await inter.response.send_message(f"Error: {e}", ephemeral=True)
-            print_exception(e)
+            #print_exception(e)
             return
         
     @stats.sub_command(name="total")
@@ -90,8 +90,34 @@ class Stats(commands.Cog):
             
         except Exception as e:
             await inter.response.send_message(f"Error: {e}", ephemeral=True)
-            print_exception(e)
+            #print_exception(e)
             return
+    
+    @stats.sub_command(name="history")
+    async def stats_history(
+        self,
+        inter: Interaction,
+        other: disnakeUser
+    ): 
+
+        try:
+            ratings = await DB.get_ratings_by_pair(User(inter.author.id), User(other.id))
+            title = f"History Between {inter.author.name} and {other.name}"
+
+            headers = "Song", "Artist", "Suggester", "Rater", "Rating"
+            data = []
+            for rating in ratings:
+                s_user = await self.bot.getch_user(rating.suggester.discord_id)
+                r_user = await self.bot.getch_user(rating.rater.discord_id)
+                data.append((rating.song.name, rating.song.artist, s_user.name, r_user.name, rating.rating))
+            message = build_table(title, headers, data)
+            await inter.response.send_message(message)
+            return
+        except Exception as e:
+            await inter.response.send_message(f"Error: {e}", ephemeral=True)
+            #print_exception(e)
+            return
+
     
     @commands.slash_command(name="leaderboard", dm_permission=False)
     async def leaderboard(self, inter: Interaction):
@@ -108,7 +134,7 @@ class Stats(commands.Cog):
         try:
             if rater:
                 ratings = await DB.get_max_ratings(User(rater.id))
-                title = f"{inter.author.name}'s Highest Ratings"
+                title = f"{rater.name}'s Highest Ratings"
             else:
                 ratings = await DB.get_max_ratings()
                 title = f"Highest Rated Suggestion Leaderboard"
@@ -124,7 +150,7 @@ class Stats(commands.Cog):
             return
         except Exception as e:
             await inter.response.send_message(f"Error: {e}", ephemeral=True)
-            print_exception(e)
+            #print_exception(e)
             return
     
     @leaderboard.sub_command(name="average")
@@ -138,7 +164,7 @@ class Stats(commands.Cog):
         try:
             if rater:
                 tups = await DB.get_average_ratings(User(rater.id))
-                title = f"{inter.author.name}'s Ratings Average Leaderboard"
+                title = f"{rater.name}'s Ratings Average Leaderboard"
             else:
                 tups = await DB.get_average_ratings()
                 title = f"Ratings Average Leaderboard"
@@ -148,12 +174,14 @@ class Stats(commands.Cog):
             for tup in tups:
                 s_user = await self.bot.getch_user(tup[1].discord_id)
                 data.append((s_user.name, round(tup[0], 1)))
+            if not data:
+                raise Exception("No data found for given query")
             message = build_table(title, headers, data)
             await inter.response.send_message(message)
             return
         except Exception as e:
             await inter.response.send_message(f"Error: {e}", ephemeral=True)
-            print_exception(e)
+            #print_exception(e)
             return
 
     @leaderboard.sub_command(name="total")
@@ -167,7 +195,7 @@ class Stats(commands.Cog):
         try:
             if rater:
                 tups = await DB.get_total_ratings(User(rater.id))
-                title = f"{inter.author.name}'s Total Points Leaderboard"
+                title = f"{rater.name}'s Total Points Leaderboard"
             else:
                 tups = await DB.get_total_ratings()
                 title = f"Total Points Leaderboard"
@@ -182,7 +210,7 @@ class Stats(commands.Cog):
             return
         except Exception as e:
             await inter.response.send_message(f"Error: {e}", ephemeral=True)
-            print_except
+            #print_except
         
         
       

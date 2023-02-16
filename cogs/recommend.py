@@ -3,7 +3,9 @@ from disnake.ext import commands
 from db import DB
 from models.modal import RecommendModal
 
-from util import Interaction, fetch_thread, validate_request
+from util import Interaction, fetch_thread, validate_request, validate_request_recommender
+from models.snowflakes import User
+from models.song import Song
 
 
 class Recommend(commands.Cog):
@@ -56,7 +58,75 @@ class Recommend(commands.Cog):
         rec = await DB.get_open_rating_by_thread(thread)
         rec.rating = rating
         await DB.close_rec(rec)
-        await inter.response.send_message(f"{rec.suggester.mention}, your recommendation has been rated **{rec.rating}/10**. Any additional comments may be given below.")
+        await inter.response.send_message(f"{rec.suggester.mention}, your recommendation has been rated **{rec.rating}/10**. Any additional comments may be given above or below.")
+    
+    @commands.slash_command(name="clear_recomendation", description="Clears your active recommendation", dm_permission=False)
+    async def clear_rec(self, inter):
+        try:
+            thread = await fetch_thread(inter)
+        except(Exception) as e:
+            await inter.response.send_message(f"Error: {e}", ephemeral=True)
+            return
+
+        await validate_request_recommender(inter, thread)
+
+        rec = await DB.get_open_rating_by_thread(thread)
+        if not rec:
+            await inter.response.send_message("Error: There is no open recommendation to clear.", ephemeral=True)
+            return
+        try:
+            await DB._delete_rec(rec)
+            await DB.flip_thread(thread=thread, next_user=User(inter.author.id))
+        except(Exception) as e:
+            await inter.response.send_message(f"Could not delete recommendation: {e}", ephemeral=True)
+            return
+    
+        
+        await inter.response.send_message (f"Deleted recommendation: {rec.song.name} by {rec.song.artist}")
+        
+    
+    @commands.slash_command(
+        name="rerate",
+        description="Updates a previous rating made by you",
+        dm_permission=False
+    )
+    async def rerate(
+        self,
+        inter: Interaction,
+        song: str,
+        artist: str,
+        rating: commands.Range[1, 10.0]
+    ):
+        caller = User(inter.author.id)
+        try:
+            thread = await fetch_thread(inter)
+        except(Exception) as e:
+            await inter.response.send_message(f"Error: {e}", ephemeral=True)
+            return
+
+        if caller == thread.user1:
+            other = thread.user2
+        elif caller == thread.user2:
+            other = thread.user1
+        else:
+            await inter.response.send_message(f"You are not a member of this thread.", ephemeral=True)
+            return
+        
+        try:
+            recs = await DB.get_ratings_by_song_and_pair(Song(song, artist), caller, other)
+            if not recs:
+                await inter.response.send_message(f"Error: cannot find {song} by {artist} in your ratings", ephemeral=True)
+                return
+        except(Exception) as e:
+            await inter.response.send_message(f"Error: {e}", ephemeral=True)
+            return
+        if len(recs) > 1:
+            await inter.response.send_message(f"Error: multiple ratings with for the same song in this thread", ephemeral=True)
+            return
+        rec = recs[0]
+        rec.rating = rating
+        await DB._close_rec(rec)
+        await inter.response.send_message(f"{rec.suggester.mention}, your recommendation **{song}** has been re-rated **{rec.rating}/10**. Any additional comments may be given above or below.", allowed_mentions= False)
         
 
 
