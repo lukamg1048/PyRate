@@ -47,7 +47,7 @@ def build_table(title, headers : list[str], data : list[list], min_total_size = 
         #print("row: %s" % row)
         for i in range(len(row)):
             if len( str(row[i])) > column_sizes[i]:
-                column_sizes[i] = len(row[i])
+                column_sizes[i] = len(str(row[i]))
     for i in range(len(column_sizes)):
         if column_sizes[i] > max_column_size:
             column_sizes[i] = max_column_size

@@ -106,10 +106,12 @@ class Stats(commands.Cog):
 
             headers = "Song", "Artist", "Suggester", "Rater", "Rating"
             data = []
+            
+            #create a dictionary matching discord id to discord name
+            users = {inter.author.id : inter.author.name, other.id : other.name}
             for rating in ratings:
-                s_user = await self.bot.getch_user(rating.suggester.discord_id)
-                r_user = await self.bot.getch_user(rating.rater.discord_id)
-                data.append((rating.song.name, rating.song.artist, s_user.name, r_user.name, rating.rating))
+                data.append((rating.song.name, rating.song.artist, users[rating.suggester.discord_id], users[rating.rater.discord_id], rating.rating))
+
             message = build_table(title, headers, data)
             await inter.response.send_message(message)
             return
