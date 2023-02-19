@@ -41,6 +41,10 @@ class Thread:
             else self.user2
         )
 
+    @property
+    def mention(self) -> str:
+        return f"<#{self.thread_id}>"
+
     # Implicitly checks whether a given user is a part of the thread
     # So, allows `if user in thread:`
     def __contains__(self, user) -> bool:
@@ -51,7 +55,7 @@ class Thread:
     def parse_tuple(cls, row: Tuple) -> "Thread":
         return cls(
             thread_id=row[0],
-            guild=row[1],
+            guild=Guild(row[1]),
             user1=User(discord_id=row[2]),
             user2=User(discord_id=row[3]),
             next_user=User(discord_id=row[4])
@@ -62,9 +66,10 @@ class Thread:
         return [
             cls(
                 thread_id=row[0],
-                user1=User(discord_id=row[1]),
-                user2=User(discord_id=row[2]),
-                next_user=User(discord_id=row[3])
+                guild=Guild(row[1]),
+                user1=User(discord_id=row[2]),
+                user2=User(discord_id=row[3]),
+                next_user=User(discord_id=row[4])
             )
             for row in tuples
         ]    

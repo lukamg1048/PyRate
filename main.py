@@ -9,4 +9,5 @@ if __name__ == "__main__":
     bot.load_extension("cogs.recommend")
     bot.load_extension("cogs.admin")
     bot.load_extension("cogs.stats")
+    bot.load_extension("cogs.threads")
     bot.run(token)

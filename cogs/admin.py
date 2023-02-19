@@ -11,37 +11,6 @@ class Admin(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.slash_command(name="thread", dm_permission=False)
-    async def thread(self, inter: Interaction):
-        pass
-
-    @thread.sub_command(name="create")
-    async def add_thread(self, inter: Interaction, user2: disnakeUser):
-        u1 = User(discord_id=inter.author.id)
-        u2 = User(discord_id=user2.id)
-        thread = Thread(
-            guild=Guild(discord_id=inter.guild_id),
-            thread_id=inter.channel_id,
-            user1=u1,
-            user2=u2,
-            next_user=u1
-        )
-        try:
-            await DB.create_thread(thread=thread)
-            await inter.response.send_message(f"Thread successfully created between {u1.mention} and {u2.mention}!")
-        except ValueError as e:
-            await inter.response.send_message(f"Error: {e}", ephemeral=True)
-        
-
-    @thread.sub_command(name="next")
-    async def thread_next(self, inter: Interaction):
-        try:
-            thread = await DB.get_thread_by_id(thread_id=inter.channel_id)
-            await inter.response.send_message(f"The user at bat in this thread is {thread.next_user.mention}.", ephemeral=True)
-        except(ValueError) as e:
-            await inter.response.send_message(f"Error: {e}", ephemeral=True)
-            return
-
     @commands.slash_command(name="manual")
     async def manual(self, inter):
         pass

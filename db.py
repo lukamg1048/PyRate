@@ -96,6 +96,13 @@ class DB():
         )
 
     @classmethod
+    async def _delink_thread(cls, thread: Thread) -> None:
+        cls.cur.execute(
+            '''DELETE FROM thread WHERE thread_id = ?''',
+            (thread.thread_id,)
+        )
+
+    @classmethod
     # Can be used with either a thread object or a thread id int
     async def _does_thread_exist(cls, *, thread_id: int = None, thread: Thread = None) -> bool:
         cls.cur.execute('''SELECT * FROM thread WHERE thread_id = ?''', (thread_id or thread.thread_id,))
@@ -225,6 +232,10 @@ class DB():
             cls.con.commit()
 
     @classmethod
+    async def delink_thread(cls, thread: Thread) -> None:
+        await cls._delink_thread(thread)
+
+    @classmethod
     async def get_thread_by_id(cls, thread_id: int) -> Thread:
         if await cls._does_thread_exist(thread_id=thread_id):
             cls.cur.execute(
@@ -248,11 +259,11 @@ class DB():
         return thread
 
     @classmethod
-    async def get_waiting_threads_by_user(cls, user: User) -> List[Thread]:
+    async def get_waiting_threads_by_user(cls, user: User, guild: Guild) -> List[Thread]:
         cls.cur.execute('''
-                SELECT * FROM thread WHERE next_user = ?
+                SELECT * FROM thread WHERE next_user = ? AND guild_id = ?
             ''',
-            (user.discord_id,)
+            (user.discord_id, guild.discord_id)
         )
         return Thread.parse_tuples(cls.cur.fetchall())
 
