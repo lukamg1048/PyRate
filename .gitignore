@@ -135,5 +135,5 @@ dmypy.json
 /include
 /_pycache
 pyvenv.cfg
-
+/share
 .env
