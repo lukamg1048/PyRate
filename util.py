@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 
 from dotenv import dotenv_values
 from typing import Union
@@ -10,6 +11,9 @@ values = dotenv_values()
 token = values.get("DISCORD_TOKEN")
 
 Interaction = Union[ApplicationCommandInteraction, ModalInteraction]
+
+main_dir = os.path.split(os.path.abspath(__file__))[0]
+outputs_dir = os.path.join(main_dir, "outputs")
 
 from models.snowflakes import Thread, User
 

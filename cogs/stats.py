@@ -1,12 +1,21 @@
+from datetime import datetime
+from io import BytesIO
+import os
+import time
+import traceback
 from disnake.ext import commands
-from disnake import User as disnakeUser, ui
+from disnake import File, User as disnakeUser, ui
+
+import matplotlib.pyplot as plt
+from PIL import Image
 
 from traceback import print_exception
-from util import build_table
+from util import build_table, outputs_dir
 from db import DB
 from models.snowflakes import User, Thread, Guild
 from models.song import Song
 from models.recommendation import Recommendation
+from models.embed import EmbedBuilder
 from util import Interaction, fetch_thread, validate_request
 
 
@@ -24,8 +33,6 @@ class Stats(commands.Cog):
         inter: Interaction,
         rater: disnakeUser = None
     ): 
-
-
         try:
             if rater:
                 ratings = await DB.get_max_rating(User(inter.author.id), User(rater.id))
@@ -192,29 +199,54 @@ class Stats(commands.Cog):
         inter: Interaction,
         rater: disnakeUser = None
     ): 
+        # try:
+        if rater:
+            tups = await DB.get_total_ratings(User(rater.id))
+            title = f"{rater.name}'s Total Points Leaderboard"
+        else:
+            tups = await DB.get_total_ratings()
+            title = f"Total Points Leaderboard"
 
-
-        try:
-            if rater:
-                tups = await DB.get_total_ratings(User(rater.id))
-                title = f"{rater.name}'s Total Points Leaderboard"
-            else:
-                tups = await DB.get_total_ratings()
-                title = f"Total Points Leaderboard"
-
-            headers = "User", "Total Points"
-            data = []
-            for tup in tups:
-                s_user = await self.bot.getch_user(tup[1].discord_id)
-                data.append((s_user.name, round(tup[0], 1)))
-            message = build_table(title, headers, data)
-            await inter.response.send_message(message)
-            return
-        except Exception as e:
-            await inter.response.send_message(f"Error: {e}", ephemeral=True)
-            #print_except
-        
-        
+        # Gather data
+        data = {}
+        for tup in tups[:10]:
+            user: disnakeUser = await self.bot.getch_user(tup[1].discord_id)
+            data[user.name] = tup[0]
+        # Generate matplotlib figure and horizontal bar graph
+        fig, ax = plt.subplots(figsize = (16,9))
+        ax.barh(list(data.keys()), list(data.values()))
+        # Remove axes splines
+        for s in ['top', 'bottom', 'left', 'right']:
+            ax.spines[s].set_visible(False)
+        # Pad axes
+        ax.xaxis.set_tick_params(pad = 5)
+        ax.yaxis.set_tick_params(pad = 10)
+        # Set gridlines
+        ax.grid(
+            color ='grey',
+            linestyle ='-', linewidth = 0.5,
+            alpha = 0.2
+        )
+        ax.invert_yaxis()
+        # Add annotation to bars
+        for i in ax.patches:
+            plt.text(
+                i.get_width()+0.2, i.get_y()+0.5,
+                str(round((i.get_width()), 2)),
+                fontsize = 10, fontweight ='bold',
+                color ='grey'
+            )
+        ax.set_title("Users with highest total ratings", loc="left")
+        filename=f"leaderboard_total{int(time.time())}.png"
+        plt.savefig(os.path.join(outputs_dir, filename), format='png')
+        builder=EmbedBuilder(
+            title="Highest Total Ratings",
+            image=File(os.path.join(outputs_dir, filename))
+        )
+        await inter.response.send_message(embed=await builder.build())
+        # except Exception as e:
+        #     await inter.response.send_message(f"Error: {e}", ephemeral=True)
+      
       
 def setup(bot: commands.Bot):
     bot.add_cog(Stats(bot))

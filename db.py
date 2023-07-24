@@ -259,12 +259,19 @@ class DB():
         return thread
 
     @classmethod
-    async def get_waiting_threads_by_user(cls, user: User, guild: Guild) -> List[Thread]:
-        cls.cur.execute('''
-                SELECT * FROM thread WHERE next_user = ? AND guild_id = ?
-            ''',
-            (user.discord_id, guild.discord_id)
-        )
+    async def get_waiting_threads_by_user(cls, user: User, guild: Guild = None) -> List[Thread]:
+        if guild is not None:
+            cls.cur.execute('''
+                    SELECT * FROM thread WHERE next_user = ? AND guild_id = ?
+                ''',
+                (user.discord_id, guild.discord_id)
+            )
+        else:
+            cls.cur.execute('''
+                    SELECT * FROM thread WHERE next_user = ?
+                ''',
+                (user.discord_id,)    
+            )
         return Thread.parse_tuples(cls.cur.fetchall())
 
     # Fetch the open rec (if any) in a thread
@@ -524,7 +531,6 @@ class DB():
                     GROUP BY suggester_id 
                     ORDER BY total_rating DESC
                 ''')
-            return [(rating, User(id)) for rating, id in cls.cur.fetchall()]
         else:
             cls.cur.execute('''
                 SELECT SUM(rating) as total_rating, suggester_id 
@@ -534,7 +540,7 @@ class DB():
                     GROUP BY suggester_id 
                     ORDER BY total_rating DESC
                 ''', (rater.discord_id,))
-            return [(rating, User(id)) for rating, id in cls.cur.fetchall()]
+        return [(rating, User(id)) for rating, id in cls.cur.fetchall()]
 
 
     
@@ -543,7 +549,7 @@ class DB():
 
 
 async def lame_ass_test_suite():
-    backEnd = DB(True)
+    backEnd = DB()
     print("Running initial tests:")
     user1 = User(12345)
     await backEnd._add_user(user1)
