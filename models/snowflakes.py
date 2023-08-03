@@ -3,27 +3,47 @@ from typing import List, Tuple
 
 
 @dataclass
-class User:
+class Mentionable:
     discord_id: int
 
     @property
     def mention(self) -> str:
         return f"<@{self.discord_id}>"
 
-    # Implicitly compares the discord_ids of two User instances
-    # So, allows `if user == other_user:`
+    # Implicitly compares the discord_ids of two Mentionables
+    # So, allows `if mentionable == mentionable:`
     def __eq__(self, other) -> bool:
         if not isinstance(other, self.__class__):
             return False
         return self.discord_id == other.discord_id
 
+@dataclass
+class User(Mentionable):
     # Implicitly print a User instance as their ID
     def __repr__(self) -> str:
         return str(self.discord_id)
 
 @dataclass
+class Role(Mentionable):
+    discord_id: int
+    
+    @property
+    def mention(self) -> str:
+        return f"<@&{self.discord_id}>"
+    
+    @classmethod
+    def parse_tuples(cls, rows: List[Tuple]) -> List["Role"]:
+        return [
+            cls(discord_id=row[0])
+            for row in rows
+        ]
+
+@dataclass
 class Guild:
     discord_id: int
+
+    def __hash__(self):
+        return hash(self.discord_id)
 
 @dataclass
 class Thread:

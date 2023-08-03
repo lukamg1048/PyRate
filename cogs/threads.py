@@ -1,8 +1,12 @@
+from typing import List
 from disnake.ext import commands
-from disnake import User as disnakeUser, Thread as disnakeThread, ChannelType
+from disnake import User as disnakeUser, Thread as disnakeThread, ChannelType, Event
+from disnake.ext.commands import check, Context
+from disnake.utils import get as disnakeGet, get as disnakeGet
 
 from db import DB
-from models.snowflakes import User, Thread, Guild
+from cache import RoleCache
+from models.snowflakes import User, Role, Thread, Guild
 from models.embed import Field, EmbedBuilder
 from util import Interaction
 
@@ -10,12 +14,30 @@ class Threads(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    def user_has_access() -> bool:
+        def predicate(ctx: Context):
+            if ctx.author.guild_permissions.administrator:
+                return True
+            for role in RoleCache.fetch(ctx.guild.id):
+                if disnakeGet(ctx.author.roles, id=role.discord_id):
+                    return True
+            return False
+        return check(predicate)
+
+    @commands.Cog.listener(name=Event.slash_command_error)
+    async def perms_error_listener(self, inter: Interaction, exception):
+        if inter.application_command.name == "thread":
+            await inter.response.send_message("You do not have permission to use this command.", ephemeral=True) 
+
+
+
     ##############################################
     #
     # /thread Group
     #
     ##############################################
     @commands.slash_command(name="thread", dm_permission=False)
+    @user_has_access()
     async def thread(self, inter: Interaction):
         pass
 
@@ -118,17 +140,27 @@ class Threads(commands.Cog):
             await inter.response.send_message(f"Error: {e}", ephemeral=True)
             return
 
-    # @thread.sub_command(name="delete", description="Delinks a thread from PyRate, and then deletes it.")
-    # @commands.default_member_permissions(administrator=True)
-    # async def thread_delete(self, inter: Interaction):
-    #     try:
-    #         thread = await DB.get_thread_by_id(thread_id=inter.channel_id)
-    #         await DB.delink_thread(thread)
-    #         await inter.channel.delete()
-    #         await inter.response.send_message(f"Thread successfully deleted!")
-    #     except(ValueError) as e:
-    #         await inter.response.send_message(f"Error: {e}", ephemeral=True)
-    #         return
+    @thread.sub_command(name="delete", description="Delinks a thread from PyRate, and then deletes it.")
+    async def thread_delete(self, inter: Interaction):
+        try:
+            thread = await DB.get_thread_by_id(thread_id=inter.channel_id)
+            await DB.delink_thread(thread)
+            await inter.channel.delete()
+            await inter.response.send_message(f"Thread successfully deleted!")
+        except(ValueError) as e:
+            await inter.response.send_message(f"Error: {e}", ephemeral=True)
+            return
+
+    @thread.sub_command(name="cleanup", description="Cleans up any threads that no longer exist.")
+    async def thread_cleanup(self, inter: Interaction):
+        guild: Guild = Guild(discord_id=inter.guild.id)
+        print("Help")
+        for thread in await DB.get_threads_by_guild(guild=guild):
+            print("Still going...")
+            if disnakeGet(inter.guild.threads, id=thread.thread_id) is None:
+                print("Bad Data Found!")
+                await DB.delink_thread(thread=thread)
+        await inter.response.send_message("Threads are all clean!")
 
 def setup(bot: commands.Bot):
     bot.add_cog(Threads(bot))

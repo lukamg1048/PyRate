@@ -3,72 +3,95 @@ from pprint import pprint
 import sqlite3
 from typing import List, Optional, Tuple, overload
 
-from models.snowflakes import User, Guild, Thread
+from models.snowflakes import User, Role, Guild, Thread
 from models.song import Song
 from models.recommendation import Recommendation
 
 class DB():
 
     @classmethod
-    def setup(cls, truncate=False) -> None:
+    def setup(cls, truncate: bool = False) -> None:
         cls.con = sqlite3.connect("pyrate.db")
         cls.cur = cls.con.cursor()
-        cls.cur.execute('PRAGMA foreign_keys = ON')
-        cls.cur.execute('''
-            CREATE TABLE IF NOT EXISTS user(
-                discord_id NUMERIC PRIMARY KEY NOT NULL
-            );
-        ''')
-        cls.cur.execute('''
-            CREATE TABLE IF NOT EXISTS thread(
-                thread_id NUMERIC PRIMARY KEY NOT NULL,
-                guild_id NUMERIC NOT NULL,
-                user1_id NUMERIC NOT NULL,
-                user2_id NUMERIC NOT NULL,
-                next_user NUMERIC NOT NULL,
-                FOREIGN KEY(user1_id) REFERENCES user (discord_id)
-                    ON DELETE CASCADE
-                    ON UPDATE CASCADE,
-                FOREIGN KEY(user2_id) REFERENCES user (discord_id)
-                    ON DELETE CASCADE
-                    ON UPDATE CASCADE
-                FOREIGN KEY (next_user) REFERENCES user (discord_id) 
-                    ON DELETE CASCADE 
-                    ON UPDATE CASCADE
-            );
-        ''')
-        cls.cur.execute('''
-            CREATE TABLE IF NOT EXISTS song(
-                song_name varchar NOT NULL COLLATE NOCASE,
-                artist varchar NOT NULL COLLATE NOCASE,
-                PRIMARY KEY(song_name, artist)
-            );
-        ''')
-        cls.cur.execute('''
-            CREATE TABLE IF NOT EXISTS recommendation(
-                song_name varchar NOT NULL COLLATE NOCASE,
-                artist varchar NOT NULL COLLATE NOCASE,
-                rater_id NUMERIC NOT NULL,
-                suggester_id NUMERIC NOT NULL,
-                guild_id NUMERIC NOT NULL,
-                timestamp text NOT NULL,
-                rating NUMERIC DEFAULT -1,
-                is_closed NUMERIC DEFAULT 0,
-                FOREIGN KEY (song_name, artist) REFERENCES song (song_name, artist)
-                    ON DELETE CASCADE
-                    ON UPDATE CASCADE,
-                FOREIGN KEY (rater_id) REFERENCES user (discord_id)
-                    ON DELETE CASCADE
-                    ON UPDATE CASCADE,
-                FOREIGN KEY (suggester_id) REFERENCES user (discord_id)
-                    ON DELETE CASCADE
-                    ON UPDATE CASCADE
-            );
-        ''')
-        if truncate:
-            cls.cur.execute('DELETE FROM user')
-            cls.cur.execute('DELETE FROM song')
-            cls.cur.execute('DELETE FROM recommendation')
+        # cls.cur.execute('PRAGMA foreign_keys = ON')
+        # cls.cur.execute('''
+        #     CREATE TABLE IF NOT EXISTS user(
+        #         discord_id NUMERIC PRIMARY KEY NOT NULL
+        #     );
+        # ''')
+        # cls.cur.execute('''
+        #     CREATE TABLE IF NOT EXISTS guild(
+        #         discord_id NUMERIC PRIMARY KEY NOT NULL
+        #     );
+        # ''')
+        # cls.cur.execute('''
+        #     CREATE TABLE IF NOT EXISTS role(
+        #         discord_id NUMERIC PRIMARY KEY NOT NULL,
+        #         guild_id NUMERIC NOT NULL,
+        #         FOREIGN KEY(guild_id) REFERENCES guild (guild_id)
+        #             ON DELETE CASCADE
+        #             ON UPDATE CASCADE
+        #     );
+        # ''')
+        # cls.cur.execute('''
+        #     CREATE TABLE IF NOT EXISTS thread(
+        #         thread_id NUMERIC PRIMARY KEY NOT NULL,
+        #         guild_id NUMERIC NOT NULL,
+        #         user1_id NUMERIC NOT NULL,
+        #         user2_id NUMERIC NOT NULL,
+        #         next_user NUMERIC NOT NULL,
+        #         FOREIGN KEY(guild_id) REFERENCES guild (discord_id)
+        #             ON DELETE CASCADE
+        #             ON UPDATE CASCADE,
+        #         FOREIGN KEY(user1_id) REFERENCES user (discord_id)
+        #             ON DELETE CASCADE
+        #             ON UPDATE CASCADE,
+        #         FOREIGN KEY(user2_id) REFERENCES user (discord_id)
+        #             ON DELETE CASCADE
+        #             ON UPDATE CASCADE
+        #         FOREIGN KEY (next_user) REFERENCES user (discord_id) 
+        #             ON DELETE CASCADE 
+        #             ON UPDATE CASCADE
+        #     );
+        # ''')
+        # cls.cur.execute('''
+        #     CREATE TABLE IF NOT EXISTS song(
+        #         song_name varchar NOT NULL COLLATE NOCASE,
+        #         artist varchar NOT NULL COLLATE NOCASE,
+        #         PRIMARY KEY(song_name, artist)
+        #     );
+        # ''')
+        # cls.cur.execute('''
+        #     CREATE TABLE IF NOT EXISTS recommendation(
+        #         song_name varchar NOT NULL COLLATE NOCASE,
+        #         artist varchar NOT NULL COLLATE NOCASE,
+        #         rater_id NUMERIC NOT NULL,
+        #         suggester_id NUMERIC NOT NULL,
+        #         guild_id NUMERIC NOT NULL,
+        #         timestamp text NOT NULL,
+        #         rating NUMERIC DEFAULT -1,
+        #         is_closed NUMERIC DEFAULT 0,
+        #         FOREIGN KEY (song_name, artist) REFERENCES song (song_name, artist)
+        #             ON DELETE CASCADE
+        #             ON UPDATE CASCADE,
+        #         FOREIGN KEY (rater_id) REFERENCES user (discord_id)
+        #             ON DELETE CASCADE
+        #             ON UPDATE CASCADE,
+        #         FOREIGN KEY (suggester_id) REFERENCES user (discord_id)
+        #             ON DELETE CASCADE
+        #             ON UPDATE CASCADE,
+        #         FOREIGN KEY (guild_id) REFERENCES guild (discord_id)
+        #             ON DELETE CASCADE
+        #             ON UPDATE CASCADE
+        #     );
+        # ''')
+        # if truncate:
+        #     cls.cur.execute('DELETE FROM user')
+        #     cls.cur.execute('DELETE FROM role')
+        #     cls.cur.execute('DELETE FROM guild')
+        #     cls.cur.execute('DELETE FROM thread')
+        #     cls.cur.execute('DELETE FROM song')
+        #     cls.cur.execute('DELETE FROM recommendation')
 
     @classmethod
     async def _add_user(cls, user: User) -> None:
@@ -78,6 +101,21 @@ class DB():
     async def _does_user_exist(cls, user: User) -> bool:
         cls.cur.execute('''SELECT * FROM user WHERE discord_id = ?''', (user.discord_id,))
         return bool(cls.cur.fetchone())
+
+    @classmethod
+    async def _add_mod_role(cls, role: Role, guild: Guild) -> None:
+        cls.cur.execute('''INSERT INTO role (discord_id, guild_id) VALUES(?, ?)''', (role.discord_id, guild.discord_id))
+        cls.cur.execute('''SELECT * FROM role''')
+        print(cls.cur.fetchall())
+
+    @classmethod
+    def _get_mod_roles(cls) -> List[Tuple]:
+        cls.cur.execute('''SELECT * FROM role''')
+        return cls.cur.fetchall()
+    
+    @classmethod
+    async def _delete_mod_role(cls, role: Role) -> None:
+        cls.cur.execute('''DELETE FROM role WHERE discord_id = ?''', (role.discord_id,))
 
     @classmethod
     async def _add_song(cls, song: Song) -> None:
@@ -101,6 +139,11 @@ class DB():
             '''DELETE FROM thread WHERE thread_id = ?''',
             (thread.thread_id,)
         )
+
+    @classmethod
+    async def _get_all_threads(cls, guild: Guild) -> List[Thread]:
+        cls.cur.execute('''SELECT * FROM thread WHERE guild_id = ?''', (guild.discord_id,))
+        return Thread.parse_tuples(cls.cur.fetchall())
 
     @classmethod
     # Can be used with either a thread object or a thread id int
@@ -157,6 +200,24 @@ class DB():
             (rec.song.name, rec.song.artist, rec.rater.discord_id, rec.suggester.discord_id, rec.guild.discord_id, is_closed)
         )
         return bool(cls.cur.fetchone())
+
+    @classmethod
+    async def create_mod_role(cls, role: Role, guild: Guild) -> None:
+        await cls._add_mod_role(role=role, guild=guild)
+        cls.con.commit()
+
+    @classmethod
+    def get_mod_roles(cls) -> List[Role]:
+        return cls._get_mod_roles()
+    
+    @classmethod 
+    async def remove_mod_role(cls, role: Role) -> None:
+        await cls._delete_mod_role(role)
+        cls.con.commit()
+
+    @classmethod
+    async def get_threads_by_guild(cls, guild: Guild) -> List[Thread]:
+        return await cls._get_all_threads(guild=guild)
 
     @classmethod
     async def debug_fetch_db(cls, which_db: str):
@@ -234,6 +295,7 @@ class DB():
     @classmethod
     async def delink_thread(cls, thread: Thread) -> None:
         await cls._delink_thread(thread)
+        cls.con.commit()
 
     @classmethod
     async def get_thread_by_id(cls, thread_id: int) -> Thread:

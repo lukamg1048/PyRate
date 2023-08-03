@@ -137,3 +137,4 @@ dmypy.json
 pyvenv.cfg
 /share
 .env
+*.bat

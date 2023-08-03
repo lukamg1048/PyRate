@@ -29,7 +29,7 @@ async def rec_new(inter: Interaction):
 
 async def rec_rate(
     inter: Interaction,
-    rating: commands.Range[1, 10.0]
+    rating: commands.Range[float, 1, 10.0]
 ):
     try:
         thread = await fetch_thread(inter)
@@ -49,7 +49,7 @@ async def rec_rerate(
     inter: Interaction, 
     song: str, 
     artist: str, 
-    rating: commands.Range[1, 10.0]
+    rating: commands.Range[float, 1, 10.0]
 ):
     caller = User(inter.author.id)
     try:
@@ -130,7 +130,7 @@ class Recommend(commands.Cog):
     async def rate(
         self, inter: 
         Interaction, 
-        rating: commands.Range[1, 10.0]
+        rating: commands.Range[float, 1, 10.0]
     ):
         await rec_rate(inter, rating)
 
@@ -143,7 +143,7 @@ class Recommend(commands.Cog):
         Interaction, 
         song: str, 
         artist: str, 
-        rating: commands.Range[1, 10.0]
+        rating: commands.Range[float, 1, 10.0]
     ):
         await rec_rerate(inter, song, artist, rating)
 
@@ -182,7 +182,7 @@ class Recommend(commands.Cog):
     async def rate_legacy(
         self,
         inter: Interaction,
-        rating: commands.Range[1, 10.0]
+        rating: commands.Range[float, 1, 10.0]
     ):
         await rec_rate(inter, rating)
 
@@ -197,7 +197,7 @@ class Recommend(commands.Cog):
         inter: Interaction,
         song: str,
         artist: str,
-        rating: commands.Range[1, 10.0]
+        rating: commands.Range[float, 1, 10.0]
     ):
         await rec_rerate(inter, song, artist, rating)
 
